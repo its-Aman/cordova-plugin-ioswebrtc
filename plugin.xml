@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin 
+    id="cordova-plugin-ioswebrtc" 
+    version="0.1.0" 
+    xmlns="http://apache.org/cordova/ns/plugins/1.0" 
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <name>IosWebRTC</name>
+	<description>A plugin for implement WebRTC in ios.</description>
+	<author>Aman Kumar, Sachin Kishore, Innotical Solutions Private Limited</author>
+	<license>ISC</license>
+	<keywords>webrtc, ios</keywords>
+
+	<info>
+		cordova-plugin-ioswebrtc enables use of the JavaScript WebRTC APIs in iOS devices.
+	</info>
+    <js-module name="IosWebRTC" src="www/IosWebRTC.js">
+        <clobbers target="cordova.plugins.IosWebRTC" />
+    </js-module>
+
+    <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <!-- <feature name="IosWebRTC">
+                <param name="ios-package" value="IosWebRTC" />
+            </feature>
+        </config-file>
+        <source-file src="src/ios/IosWebRTC.m" /> -->
+
+            <feature name="IosWebRTC">
+                <param name="ios-package" value="IosWebRTC" />
+            </feature>
+        </config-file>
+
+    <!-- Project source files -->
+        <source-file src="src/ios/IosWebRTC.swift" />
+		<source-file src="src/ios/AVCaptureState.swift" />
+		<source-file src="src/ios/RTCCapturer.swift" />
+		<source-file src="src/ios/RTCCapturerSettingsModel.swift" />
+		<source-file src="src/ios/RTCClient.swift" />
+		<source-file src="src/ios/RTCSEttingsStore.swift" />
+
+    <!-- <framework src="Starscream" type="podspec" spec="~> 3.0.5" /> -->
+    <!-- IOS Shared Dependencies -->
+
+        <framework src="WebRTC" type="podspec" spec="~> 63.11" />
+        
+    </platform>
+</plugin>

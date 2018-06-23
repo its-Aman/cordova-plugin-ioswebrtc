@@ -1,0 +1,19 @@
+{
+  "name": "cordova-plugin-ioswebrtc",
+  "version": "0.1.15",
+  "description": "A plugin for implement WebRTC in ios",
+  "cordova": {
+    "id": "cordova-plugin-ioswebrtc",
+    "platforms": [
+      "ios"
+    ]
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-ios",
+    "ios: webrtc",
+    "webrtc"
+  ],
+  "author": "Aman Kumar, Sachin Kishore, Innotical Solutions Private Limited",
+  "license": "ISC"
+}
