@@ -1,7 +1,17 @@
 {
   "name": "cordova-plugin-ioswebrtc",
-  "version": "0.1.15",
+  "email": "kumaraman7056@gmail.com",
+  "version": "0.1.16",
   "description": "A plugin for implement WebRTC in ios",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/its-Aman/cordova-plugin-ioswebrtc.git"
+  },
+  "homepage": "https://github.com/its-Aman/cordova-plugin-ioswebrtc/blob/master/README.md",
+  "bugs": {
+    "email": "kumaraman7056@gmail.com",
+    "url": "https://github.com/its-Aman/cordova-plugin-ioswebrtc/issues"
+  },
   "cordova": {
     "id": "cordova-plugin-ioswebrtc",
     "platforms": [
