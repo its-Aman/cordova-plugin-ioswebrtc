@@ -7,22 +7,18 @@
 //
 
 import Foundation
-// import UIKit
 import AVFoundation
-//import MobileCoreServices
-//import Starscream
 import WebRTC
-
 let TAG: String = "SACHIN"
 let SCREEN_WIDTH = UIScreen.main.bounds.width
 let SCREEN_HEIGHT = UIScreen.main.bounds.height
 
 @objc(IosWebRTC) class IosWebRTC : CDVPlugin , RTCClientDelegate  {
     
-    var callView : UIView!
     var callImageView : UIImageView!
     var callLocalView : RTCEAGLVideoView!
     var callRemoteView : RTCEAGLVideoView!
+//    var sgshhg : rtca
     var upperNavView : UIView!
     var currentStatusLabel : UILabel!
     var doctorLabel : UILabel!
@@ -59,27 +55,24 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             status: CDVCommandStatus_OK,
             messageAs: "stream is : " + "\(self.localVideoTrack1)"
         )
-        
         self.commandDelegate!.send(
             pluginResult,
             callbackId: command.callbackId
         )
     }
-    
     override func awakeFromNib() {
         setAudioOutputSpeaker()
     }
-    
     func configureVideoClient() {
         let stunServer : String = "stun:172.104.169.138:443"
         let iceServers = RTCIceServer.init(urlStrings: [stunServer], username: "", credential: "")
         print(iceServers)
-        let client = RTCClient.init(iceServers: [iceServers], videoCall: self.isVideoCall)
+        let client = RTCClient.init(iceServers: [iceServers], videoCall: true)
+        print(self.isVideoCall)
         client.delegate = self
         self.videoClient = client
         client.startConnection()
         print(TAG,"configureVideoClient")
-        
     }
     func rtcClient(client: RTCClient, didCreateLocalCapturer capturer: RTCCameraVideoCapturer) {
         let settingsModel = RTCCapturerSettingsModel()
@@ -101,41 +94,39 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             self.callJS(data: dict.json)
         }
     }
-    
     func rtcClient(client : RTCClient, startCallWithSdp sdp: String) {
         print(sdp)
         let dict : [String : Any] = ["type":"sdp",
                                      "data" : sdp.description]
         self.callJS(data: dict.json)
     }
-    
     func rtcClient(client : RTCClient, didReceiveLocalVideoTrack localVideoTrack: RTCVideoTrack) {
         print("didReceiveLocalVideoTrack",self.isVideoCall)
+        setViewOfVideo()
         if self.isVideoCall{
-            setViewOfVideo()
-            localVideoTrack.add(self.callLocalView)
-            self.videoClient?.makeOffer()
+           self.callLocalView.isHidden = false
+            
+        }else{
+            self.callLocalView.isHidden = true
         }
+        localVideoTrack.add(self.callLocalView)
+        self.videoClient?.makeOffer()
     }
-    
-    
     func rtcClient(client : RTCClient, didReceiveRemoteVideoTrack remoteVideoTrack: RTCVideoTrack) {
         print("didReceiveRemoteVideoTrack")
         self.callTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(ShowTimerCount), userInfo: nil, repeats: true)
         self.isAccepted = true
         if self.isVideoCall{
              DispatchQueue.main.async {
-            self.callRemoteView = RTCEAGLVideoView.init(frame: CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
-            self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
-           
-            self.callImageView.addSubview(self.callRemoteView)
-            self.callRemoteView.addSubview(self.callLocalView)
-            self.callRemoteView.bringSubview(toFront: self.callLocalView)
-            self.callRemoteView.alpha = 1
-             remoteVideoTrack.add(self.callLocalView)
+            self.callImageView.isHidden = true
+             remoteVideoTrack.add(self.callRemoteView)
+            }
+        }else{
+            DispatchQueue.main.async {
+              self.callImageView.isHidden = false
+                 remoteVideoTrack.add(self.callRemoteView)
             }
         }
-        
     }
     @objc func ShowTimerCount(){
         countSec = countSec + 1
@@ -148,53 +139,30 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             countHr = countHr + 1
         }
         self.currentStatusLabel.text = "\(countHr) :  \(countMin) :  \(countSec) "
-        
     }
     func setAudioOutputSpeaker(){
         try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
     }
-    
-    //    func remoteView(){
-    //        self.callRemoteView = RTCEAGLVideoView.init(frame: CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
-    //        self.callImageView.isHidden = true
-    //        self.callImageView.addSubview(callRemoteView)
-    //        self.callImageView.bringSubview(toFront: callRemoteView)
-    //    }
-    //    func localView(track : RTCVideoTrack){
-    //        self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
-    //        self.callImageView.isHidden = false
-    //
-    //        self.callImageView.addSubview(callLocalView)
-    //        track.add(self.callLocalView)
-    //        self.callImageView.bringSubview(toFront: callLocalView)
-    //    }
     func setViewOfVideo(){
-        if self.isVideoCall{
-            self.callRemoteView = RTCEAGLVideoView.init(frame: CGRect(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
             self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
-            self.callImageView.addSubview(self.callRemoteView)
-            self.callImageView.addSubview(self.callLocalView)
-            self.callImageView.bringSubview(toFront: self.callLocalView)
-            self.callRemoteView.alpha = 0
-        }
+            callRemoteView.addSubview(callLocalView)
+    
     }
-
     func removeStream(){
         self.videoClient?.disconnect()
     }
 }
 extension IosWebRTC{
-    
     func addCallerView(image:String , isCallComing : Bool, appName : String , doctorName : String , status : String , rejectStr : String , acceptStr : String) {
         self.isAccepted = false
-        callView = UIView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
-        callView.backgroundColor = UIColor.white
+        callRemoteView = RTCEAGLVideoView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
+        callRemoteView.backgroundColor = UIColor.white
         callImageView = UIImageView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
         if let url = URL.init(string: image){
             downloadImage(url: url, value: "user")
         }
         callImageView.contentMode = .scaleToFill
-        callView.addSubview(callImageView)
+        callRemoteView.addSubview(callImageView)
         upperNavView = UIView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: 125))
         upperNavView.alpha = 0.78
         upperNavView.backgroundColor = UIColor.darkGray
@@ -216,14 +184,14 @@ extension IosWebRTC{
         upperNavView.addSubview(familyCareCallType)
         upperNavView.addSubview(doctorLabel)
         upperNavView.addSubview(currentStatusLabel)
-        callView.addSubview(upperNavView)
+        callRemoteView.addSubview(upperNavView)
         self.acceptBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2-60, y: SCREEN_HEIGHT-100, width: 60, height: 60))
         if isCallComing == true{
             rejectBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2+20, y: SCREEN_HEIGHT-100, width: 60, height: 60))
             self.acceptBtn.isHidden = false
         }else{
             rejectBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2 - 40, y: SCREEN_HEIGHT-100, width: 60, height: 60))
-            callView.addSubview(acceptBtn)
+            callRemoteView.addSubview(acceptBtn)
             self.acceptBtn.isHidden = true
         }
         let tap1 = UITapGestureRecognizer(target: self, action: #selector(acceptCall(gestureRecognizer:)))
@@ -238,11 +206,10 @@ extension IosWebRTC{
         acceptBtn.layer.cornerRadius = 30
         acceptBtn.isUserInteractionEnabled = true
         rejectBtn.backgroundColor = UIColor.red
-        
         rejectBtn.layer.cornerRadius = 30
         rejectBtn.clipsToBounds = true
-        callView.addSubview(rejectBtn)
-        callView.addSubview(acceptBtn)
+        callRemoteView.addSubview(rejectBtn)
+        callRemoteView.addSubview(acceptBtn)
         if let url = URL.init(string: acceptStr){
             downloadImage(url: url, value: "accept")
         }
@@ -250,10 +217,9 @@ extension IosWebRTC{
             downloadImage(url: url, value: "reject")
         }
         if let appl = UIApplication.shared.delegate as? CDVAppDelegate{
-            appl.window.addSubview(callView)
+            appl.window.addSubview(callRemoteView)
         }
     }
-    
     @objc internal func acceptCall(gestureRecognizer: UITapGestureRecognizer) {
         print("acceptCall")
         self.rejectBtn.frame = CGRect.init(x: SCREEN_WIDTH/2+20, y: SCREEN_HEIGHT-100, width: 60, height: 60)
@@ -266,18 +232,16 @@ extension IosWebRTC{
             self.currentStatusLabel.text = "Connected"
         }
     }
-    
     @objc internal func rejectCall(gestureRecognizer: UITapGestureRecognizer) {
         print("rejectCall")
         self.removeStream()
-        self.callView.removeFromSuperview()
+        self.callRemoteView.removeFromSuperview()
         let rejectDict : [String:Any] = ["reason" : "userReject",
                                          "isAccepted" : self.isAccepted]
         let dict : [String : Any] = ["type":"cancel",
                                      "data" : rejectDict]
         self.callJS(data: dict.json)
     }
-    
     func callJS(data: String) {
         let javaScript = "cordova.plugins.IosWebRTC.callbackResult(\(data))"
         DispatchQueue.main.async {
@@ -316,8 +280,8 @@ extension IosWebRTC  {
             case IonicTypes.timerReject.rawValue:
                 print(IonicTypes.timerReject.rawValue)
                 self.removeStream()
-                self.callView.removeFromSuperview()
-                // self.callTimer.invalidate()
+                self.callRemoteView.removeFromSuperview()
+//                self.callTimer.invalidate()
                 let rejectDict : [String:Any] = ["reason" : "userReject",
                                                  "isAccepted" : self.isAccepted]
                 let dict : [String : Any] = ["type":"cancel",
@@ -329,6 +293,7 @@ extension IosWebRTC  {
                 }
             case IonicTypes.sdp.rawValue:
                 if let data = value["data"] as? String {
+                    print(data)
                     self.caseOnAnswer(sdpAns: data)
                 }
             case IonicTypes.call.rawValue:
@@ -359,17 +324,15 @@ extension IosWebRTC  {
             }
         }
     }
-    
     func caseOnCandidate(dict : [String : Any]){
         let mid = dict["sdpMid"] as! String
         let index = dict["sdpMLineIndex"] as! Int
-        let sdp = dict["candidate"] as! String // check what tag it is coming
+        let sdp = dict["candidate"] as! String
         let candidate : RTCIceCandidate = RTCIceCandidate.init(sdp: sdp, sdpMLineIndex: Int32(index), sdpMid: mid)
         self.videoClient?.addIceCandidate(iceCandidate: candidate)
     }
-    
-    
     func caseOnAnswer(sdpAns : String) -> Void {
+        
         self.videoClient?.handleAnswerReceived(withRemoteSDP: sdpAns)
     }
 }
@@ -389,10 +352,10 @@ extension IosWebRTC{
                 if value == "user"{
                     self.callImageView.image = UIImage.init(data: data)
                 }else if value == "accept"{
-                    self.acceptBtn.image = UIImage.init(data: data)
+                    self.acceptBtn.image = resizeImage(image: UIImage.init(data: data)!, targetSize: CGSize(width: 23, height: 23))
                 }
                 else if value == "reject"{
-                    self.rejectBtn.image = UIImage.init(data: data)
+                    self.rejectBtn.image = resizeImage(image: UIImage.init(data: data)!, targetSize: CGSize(width: 13, height: 13))
                 }
             }
         }
@@ -428,6 +391,23 @@ extension String {
     func printDict() {
         print(dictionary)
     }
+}
+func resizeImage(image: UIImage, targetSize: CGSize) -> UIImage {
+    let size = image.size
+    let widthRatio  = targetSize.width  / size.width
+    let heightRatio = targetSize.height / size.height
+    var newSize: CGSize
+    if(widthRatio > heightRatio) {
+        newSize = CGSize.init(width: size.width * heightRatio, height: size.height * heightRatio)
+    } else {
+        newSize = CGSize.init(width: size.width * heightRatio, height: size.height * heightRatio)
+    }
+    let rect = CGRect.init(x: 0, y: 0, width: newSize.width, height: newSize.height)
+    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+    image.draw(in: rect)
+    let newImage = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+    return newImage!
 }
 enum IonicTypes:String{
     case ringing = "ringing"
