@@ -213,6 +213,7 @@ public extension RTCClient {
             if !AVCaptureState.isVideoDisabled {
                 let videoSource = factory.avFoundationVideoSource(with: self.mediaConstraint)
                 let videoTrack = factory.videoTrack(with: videoSource, trackId: "video")
+                videoTrack.isEnabled = true
                 localStream.addVideoTrack(videoTrack)
             } else {
                 // show alert for video permission disabled
@@ -264,11 +265,14 @@ public extension RTCClient {
    
 }
 
-extension RTCClient: RTCPeerConnectionDelegate {
+extension RTCClient: RTCPeerConnectionDelegate{
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {
-
+        print(#function)
+    
+       
     }
+   
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
         if stream.audioTracks.count > 0 {
@@ -277,17 +281,18 @@ extension RTCClient: RTCPeerConnectionDelegate {
             
         }
         if stream.videoTracks.count > 0 {
+            print(stream.videoTracks.count)
+            stream.videoTracks[0].isEnabled = true
             self.delegate?.rtcClient(client: self, didReceiveRemoteVideoTrack: stream.videoTracks[0])
-              print("RTCMediaStream genrated")
         }
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {
-
+        print(#function)
     }
 
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
-
+        print(#function)
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
@@ -295,7 +300,7 @@ extension RTCClient: RTCPeerConnectionDelegate {
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {
-
+        print(#function)
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
@@ -303,11 +308,11 @@ extension RTCClient: RTCPeerConnectionDelegate {
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {
-        
+        print(#function)
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        
+        print(#function)
     }
     
     func setAudioOutputSpeaker(){

@@ -2,7 +2,7 @@
 //  DemoIonic.swift
 //  WebRTCDemo
 //
-//  Created by kishore on 13/06/18.
+//  Created by Sachin kishore on 13/06/18.
 //  Copyright © 2018 Innotical  Solutions . All rights reserved.
 //
 
@@ -13,12 +13,15 @@ let TAG: String = "SACHIN"
 let SCREEN_WIDTH = UIScreen.main.bounds.width
 let SCREEN_HEIGHT = UIScreen.main.bounds.height
 
-@objc(IosWebRTC) class IosWebRTC : CDVPlugin , RTCClientDelegate  {
+@objc(IosWebRTC) class IosWebRTC : CDVPlugin , RTCClientDelegate  , RTCEAGLVideoViewDelegate{
+    func videoView(_ videoView: RTCEAGLVideoView, didChangeVideoSize size: CGSize) {
+        print(size)
+        print(videoView.frame.size)
+    }
     
     var callImageView : UIImageView!
     var callLocalView : RTCEAGLVideoView!
     var callRemoteView : RTCEAGLVideoView!
-//    var sgshhg : rtca
     var upperNavView : UIView!
     var currentStatusLabel : UILabel!
     var doctorLabel : UILabel!
@@ -27,18 +30,22 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
     var rejectBtn : UIImageView!
     var localMediaStream: RTCMediaStream!
     var localVideoTrack1 : RTCVideoTrack!
-    var remoteVideoTrack  : RTCVideoTrack!
+    var remoteVideoTrack1  : RTCVideoTrack!
     var videoClient: RTCClient?
     var captureController: RTCCapturer!
     var sdpOffer = ""
     var isCallComing = false
     var isVideoCall = true
     var callBckCommand : CDVInvokedUrlCommand!
-    var callTimer : Timer!
+    var callTimer : Timer?
     var countSec = 0
     var countMin = 0
     var countHr = 0
     var isAccepted = false
+    var stunServer: String!
+    var secStr = ""
+    var minStr = ""
+    var hrStr = ""
     
     func echo(_ command: CDVInvokedUrlCommand) {
         self.callBckCommand = command
@@ -64,8 +71,8 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         setAudioOutputSpeaker()
     }
     func configureVideoClient() {
-        let stunServer : String = "stun:172.104.169.138:443"
-        let iceServers = RTCIceServer.init(urlStrings: [stunServer], username: "", credential: "")
+        print(self.stunServer)
+        let iceServers = RTCIceServer.init(urlStrings: [self.stunServer], username: "", credential: "")
         print(iceServers)
         let client = RTCClient.init(iceServers: [iceServers], videoCall: true)
         print(self.isVideoCall)
@@ -104,7 +111,7 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         print("didReceiveLocalVideoTrack",self.isVideoCall)
         setViewOfVideo()
         if self.isVideoCall{
-           self.callLocalView.isHidden = false
+            self.callLocalView.isHidden = false
             
         }else{
             self.callLocalView.isHidden = true
@@ -114,17 +121,25 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
     }
     func rtcClient(client : RTCClient, didReceiveRemoteVideoTrack remoteVideoTrack: RTCVideoTrack) {
         print("didReceiveRemoteVideoTrack")
-        self.callTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(ShowTimerCount), userInfo: nil, repeats: true)
+        DispatchQueue.main.async {
+            self.callTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(self.ShowTimerCount), userInfo: nil, repeats: true)
+            self.remoteVideoTrack1 = remoteVideoTrack
+            self.perform(#selector(self.calling), with: nil, afterDelay: 1.0)
+            
+        }
+    }
+    @objc func calling(){
+        print("yes")
         self.isAccepted = true
         if self.isVideoCall{
-             DispatchQueue.main.async {
-            self.callImageView.isHidden = true
-             remoteVideoTrack.add(self.callRemoteView)
+            DispatchQueue.main.async {
+                self.callImageView.isHidden = true
+                self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }else{
             DispatchQueue.main.async {
-              self.callImageView.isHidden = false
-                 remoteVideoTrack.add(self.callRemoteView)
+                self.callImageView.isHidden = false
+                self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }
     }
@@ -138,17 +153,46 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             countMin = 0
             countHr = countHr + 1
         }
-        self.currentStatusLabel.text = "\(countHr) :  \(countMin) :  \(countSec) "
+        
+        if countSec < 10 {
+            self.secStr = "0\(countSec)"
+        }else{
+            self.secStr = "\(countSec)"
+        }
+        if countMin < 10 {
+            self.minStr = "0\(countMin)"
+        }else{
+            self.minStr = "\(countMin)"
+        }
+        if countHr < 10 {
+            self.hrStr = "0\(countHr)"
+        }else{
+            self.hrStr = "\(countHr)"
+        }
+        
+        self.currentStatusLabel.text = "\(hrStr) : \(minStr) : \(secStr) "
+        
+        
+        
     }
     func setAudioOutputSpeaker(){
         try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
     }
     func setViewOfVideo(){
-            self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
-            callRemoteView.addSubview(callLocalView)
-    
+        self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
+        self.callRemoteView.contentMode = .center
+        self.callLocalView.contentMode = .scaleAspectFit
+        callRemoteView.addSubview(callLocalView)
+        
     }
     func removeStream(){
+        self.minStr = ""
+        self.hrStr = ""
+        self.secStr = ""
+        self.remoteVideoTrack1 = nil
+        self.countHr = 0
+        self.countSec = 0
+        self.countMin = 0
         self.videoClient?.disconnect()
     }
 }
@@ -157,6 +201,7 @@ extension IosWebRTC{
         self.isAccepted = false
         callRemoteView = RTCEAGLVideoView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
         callRemoteView.backgroundColor = UIColor.white
+        self.callRemoteView.delegate = self
         callImageView = UIImageView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
         if let url = URL.init(string: image){
             downloadImage(url: url, value: "user")
@@ -217,7 +262,9 @@ extension IosWebRTC{
             downloadImage(url: url, value: "reject")
         }
         if let appl = UIApplication.shared.delegate as? CDVAppDelegate{
+            self.callRemoteView.backgroundColor = UIColor.white
             appl.window.addSubview(callRemoteView)
+            appl.window.bringSubview(toFront: callRemoteView)
         }
     }
     @objc internal func acceptCall(gestureRecognizer: UITapGestureRecognizer) {
@@ -234,13 +281,22 @@ extension IosWebRTC{
     }
     @objc internal func rejectCall(gestureRecognizer: UITapGestureRecognizer) {
         print("rejectCall")
+        if self.isAccepted{
+            self.rejectTimer()
+        }
         self.removeStream()
         self.callRemoteView.removeFromSuperview()
         let rejectDict : [String:Any] = ["reason" : "userReject",
-                                         "isAccepted" : self.isAccepted]
+                                         "isAccepted" : self.isAccepted == true ? 0 : 1]
         let dict : [String : Any] = ["type":"cancel",
                                      "data" : rejectDict]
         self.callJS(data: dict.json)
+    }
+    func rejectTimer(){
+        if self.callTimer != nil{
+            self.callTimer?.invalidate()
+            self.callTimer = nil
+        }
     }
     func callJS(data: String) {
         let javaScript = "cordova.plugins.IosWebRTC.callbackResult(\(data))"
@@ -269,6 +325,9 @@ extension IosWebRTC  {
                     let appName = data["appName"] as! String
                     let acc = data["accept"] as! String
                     let rec = data["reject"] as! String
+                    let setting = data["settings"] as! [String:Any]
+                    let stun = setting["stun"] as! String
+                    self.stunServer = stun
                     if callType == "A"{
                         self.isVideoCall = false
                     }else{
@@ -281,9 +340,22 @@ extension IosWebRTC  {
                 print(IonicTypes.timerReject.rawValue)
                 self.removeStream()
                 self.callRemoteView.removeFromSuperview()
-//                self.callTimer.invalidate()
+                if self.isAccepted{
+                    self.rejectTimer()
+                }
+                if let data = value["data"] as? [String:Any]{
+                    if let res = data["response"] as? String{
+                        if res == "rejected"{
+                            let rejectDict : [String:Any] = ["reason" : "userReject", "response": res, "isAccepted" : 3]
+                            let dict : [String : Any] = ["type":"cancel", "data" : rejectDict]
+                            self.callJS(data: dict.json)
+                            return
+                        }
+                    }
+                }
+                
                 let rejectDict : [String:Any] = ["reason" : "userReject",
-                                                 "isAccepted" : self.isAccepted]
+                                                 "isAccepted" : self.isAccepted == true ? 0 : 1]
                 let dict : [String : Any] = ["type":"cancel",
                                              "data" : rejectDict]
                 self.callJS(data: dict.json)
@@ -291,7 +363,12 @@ extension IosWebRTC  {
                 if let data = value["data"] as? [String : Any] {
                     self.caseOnCandidate(dict: data)
                 }
-            case IonicTypes.sdp.rawValue:
+            case IonicTypes.sdp_callResponse.rawValue:
+                if let data = value["data"] as? String {
+                    print(data)
+                    self.caseOnAnswer(sdpAns: data)
+                }
+            case IonicTypes.sdp_startCommunication.rawValue:
                 if let data = value["data"] as? String {
                     print(data)
                     self.caseOnAnswer(sdpAns: data)
@@ -309,6 +386,9 @@ extension IosWebRTC  {
                     }else{
                         self.isVideoCall = true
                     }
+                    let setting = data["settings"] as! [String:Any]
+                    let stun = setting["stun"] as! String
+                    self.stunServer = stun
                     self.isCallComing = false
                     self.addCallerView(image: img, isCallComing: isCallComing, appName: appName, doctorName: name, status: "Connecting", rejectStr: rec, acceptStr: acc)
                     self.configureVideoClient()
@@ -335,6 +415,11 @@ extension IosWebRTC  {
         
         self.videoClient?.handleAnswerReceived(withRemoteSDP: sdpAns)
     }
+    func createAnswerForOfferReceived(sdpAns : String) -> Void {
+        
+        self.videoClient?.createAnswerForOfferReceived(withRemoteSDP: sdpAns)
+    }
+    
 }
 extension IosWebRTC{
     func getDataFromUrl(url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
@@ -417,7 +502,8 @@ enum IonicTypes:String{
     case startCommunication = "startCommunication"
     case stopCommunication = "stopCommunication"
     case iceCandidate = "iceCandidate"
-    case sdp = "sdp"
+    case sdp_callResponse = "sdp_callResponse"
+    case sdp_startCommunication = "sdp_startCommunication"
     case timerReject = "timerReject"
     case call = "call"
 }

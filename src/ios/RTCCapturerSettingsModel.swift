@@ -18,7 +18,7 @@ import Foundation
 public class RTCCapturerSettingsModel: NSObject {
 
     struct SettingsConstants {
-        static let videoResolutionsStaticValues = [ "640x480", "960x540", "1280x720" ]
+        static let videoResolutionsStaticValues = [ "375x667", "960x540", "1280x720" ]
         static let videoCodecsStaticValues = [ "H264", "VP8", "VP9" ]
     }
 
