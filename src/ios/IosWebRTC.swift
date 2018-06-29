@@ -54,14 +54,13 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             messageAs: "error"
         )
         let msg = command.arguments[0] as? String ?? ""
-        print("Working_________________", msg)
-        
         self.handleMsgFromIonic(msg: msg)
         
         pluginResult = CDVPluginResult(
             status: CDVCommandStatus_OK,
-            messageAs: "stream is : " + "\(self.localVideoTrack1)"
+            messageAs: "success command"
         )
+        
         self.commandDelegate!.send(
             pluginResult,
             callbackId: command.callbackId
@@ -153,7 +152,6 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             countMin = 0
             countHr = countHr + 1
         }
-        
         if countSec < 10 {
             self.secStr = "0\(countSec)"
         }else{
@@ -169,11 +167,7 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         }else{
             self.hrStr = "\(countHr)"
         }
-        
         self.currentStatusLabel.text = "\(hrStr) : \(minStr) : \(secStr) "
-        
-        
-        
     }
     func setAudioOutputSpeaker(){
         try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
@@ -183,7 +177,6 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         self.callRemoteView.contentMode = .center
         self.callLocalView.contentMode = .scaleAspectFit
         callRemoteView.addSubview(callLocalView)
-        
     }
     func removeStream(){
         self.minStr = ""
@@ -207,6 +200,7 @@ extension IosWebRTC{
             downloadImage(url: url, value: "user")
         }
         callImageView.contentMode = .scaleToFill
+        callImageView.backgroundColor = UIColor.white
         callRemoteView.addSubview(callImageView)
         upperNavView = UIView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: 125))
         upperNavView.alpha = 0.78
@@ -222,7 +216,7 @@ extension IosWebRTC{
         doctorLabel.textAlignment = .left
         doctorLabel.font = UIFont.systemFont(ofSize: 16)
         currentStatusLabel = UILabel.init(frame: CGRect.init(x: 10, y: 87, width: SCREEN_WIDTH-10, height: 22))
-        currentStatusLabel.text = status
+        currentStatusLabel.text = status.capitalized
         currentStatusLabel.textColor = UIColor.white
         currentStatusLabel.textAlignment = .left
         currentStatusLabel.font = UIFont.systemFont(ofSize: 13)
@@ -276,7 +270,7 @@ extension IosWebRTC{
         self.acceptBtn.isHidden = true
         if self.isCallComing{
             self.configureVideoClient()
-            self.currentStatusLabel.text = "Connected"
+            self.currentStatusLabel.text = "CONNECTED"
         }
     }
     @objc internal func rejectCall(gestureRecognizer: UITapGestureRecognizer) {
@@ -287,7 +281,7 @@ extension IosWebRTC{
         self.removeStream()
         self.callRemoteView.removeFromSuperview()
         let rejectDict : [String:Any] = ["reason" : "userReject",
-                                         "isAccepted" : self.isAccepted == true ? 0 : 1]
+                                         "isAccepted" : self.isAccepted == true ? 0 : 1] //might needs to change
         let dict : [String : Any] = ["type":"cancel",
                                      "data" : rejectDict]
         self.callJS(data: dict.json)
@@ -353,9 +347,8 @@ extension IosWebRTC  {
                         }
                     }
                 }
-                
                 let rejectDict : [String:Any] = ["reason" : "userReject",
-                                                 "isAccepted" : self.isAccepted == true ? 0 : 1]
+                                                 "isAccepted" : self.isAccepted == true ? 0 : 1] //might needs to change
                 let dict : [String : Any] = ["type":"cancel",
                                              "data" : rejectDict]
                 self.callJS(data: dict.json)
@@ -396,7 +389,7 @@ extension IosWebRTC  {
             case IonicTypes.ringing.rawValue:
                 if let data = value["data"] as? [String : Any] {
                     if let text = data["text"] as? String{
-                        self.currentStatusLabel.text = text
+                        self.currentStatusLabel.text = text.capitalized
                     }
                 }
             default:
@@ -412,14 +405,11 @@ extension IosWebRTC  {
         self.videoClient?.addIceCandidate(iceCandidate: candidate)
     }
     func caseOnAnswer(sdpAns : String) -> Void {
-        
         self.videoClient?.handleAnswerReceived(withRemoteSDP: sdpAns)
     }
     func createAnswerForOfferReceived(sdpAns : String) -> Void {
-        
         self.videoClient?.createAnswerForOfferReceived(withRemoteSDP: sdpAns)
     }
-    
 }
 extension IosWebRTC{
     func getDataFromUrl(url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
@@ -446,7 +436,6 @@ extension IosWebRTC{
         }
     }
 }
-
 extension Dictionary {
     var json: String {
         let invalidJson = "Not a valid JSON"
@@ -507,4 +496,3 @@ enum IonicTypes:String{
     case timerReject = "timerReject"
     case call = "call"
 }
-
