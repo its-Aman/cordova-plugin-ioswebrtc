@@ -19,6 +19,7 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         print(videoView.frame.size)
     }
     
+    var speakerBtn : UIImageView!
     var callImageView : UIImageView!
     var callLocalView : RTCEAGLVideoView!
     var callRemoteView : RTCEAGLVideoView!
@@ -46,7 +47,11 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
     var secStr = ""
     var minStr = ""
     var hrStr = ""
-    
+    var isSpeakerOff = true
+    var isSpeakerOffUrl = ""
+    var isSpeakerOnUrl = ""
+    var isSpeakerOffImage : UIImage?
+    var isSpeakerOnImage : UIImage?
     func echo(_ command: CDVInvokedUrlCommand) {
         self.callBckCommand = command
         var pluginResult = CDVPluginResult(
@@ -67,7 +72,8 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         )
     }
     override func awakeFromNib() {
-        setAudioOutputSpeaker()
+        //        setAudioOutputSpeaker()
+        //        self.SetSessionPlayerOn()
     }
     func configureVideoClient() {
         print(self.stunServer)
@@ -132,16 +138,23 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         self.isAccepted = true
         if self.isVideoCall{
             DispatchQueue.main.async {
+                self.isSpeakerOff = false
                 self.callImageView.isHidden = true
+                try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
                 self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }else{
             DispatchQueue.main.async {
+                self.isSpeakerOff = true
                 self.callImageView.isHidden = false
+                 self.SetSpeakerOn()
                 self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }
+       
     }
+    
+    
     @objc func ShowTimerCount(){
         countSec = countSec + 1
         if countSec == 60{
@@ -170,7 +183,7 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         self.currentStatusLabel.text = "\(hrStr) : \(minStr) : \(secStr) "
     }
     func setAudioOutputSpeaker(){
-        try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+        // try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
     }
     func setViewOfVideo(){
         self.callLocalView = RTCEAGLVideoView.init(frame: CGRect(x: SCREEN_WIDTH-130, y: SCREEN_HEIGHT-280, width: 120, height: 150))
@@ -186,12 +199,14 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         self.countHr = 0
         self.countSec = 0
         self.countMin = 0
+        self.isSpeakerOff = true
         self.videoClient?.disconnect()
     }
 }
 extension IosWebRTC{
     func addCallerView(image:String , isCallComing : Bool, appName : String , doctorName : String , status : String , rejectStr : String , acceptStr : String) {
         self.isAccepted = false
+        self.isSpeakerOff = true
         callRemoteView = RTCEAGLVideoView.init(frame: CGRect.init(x: 0, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT))
         callRemoteView.backgroundColor = UIColor.white
         self.callRemoteView.delegate = self
@@ -225,6 +240,8 @@ extension IosWebRTC{
         upperNavView.addSubview(currentStatusLabel)
         callRemoteView.addSubview(upperNavView)
         self.acceptBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2-60, y: SCREEN_HEIGHT-100, width: 60, height: 60))
+        self.speakerBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2-60, y: SCREEN_HEIGHT-100, width: 60, height: 60))
+        self.speakerBtn.isHidden = true
         if isCallComing == true{
             rejectBtn = UIImageView.init(frame: CGRect.init(x: SCREEN_WIDTH/2+20, y: SCREEN_HEIGHT-100, width: 60, height: 60))
             self.acceptBtn.isHidden = false
@@ -236,17 +253,24 @@ extension IosWebRTC{
         let tap1 = UITapGestureRecognizer(target: self, action: #selector(acceptCall(gestureRecognizer:)))
         acceptBtn.addGestureRecognizer(tap1)
         let tap2 = UITapGestureRecognizer(target: self, action: #selector(rejectCall(gestureRecognizer:)))
+        let tap3 = UITapGestureRecognizer(target: self, action: #selector(speakerBtnTap(gestureRecognizer:)))
+        self.speakerBtn.addGestureRecognizer(tap3)
         rejectBtn.addGestureRecognizer(tap2)
         acceptBtn.backgroundColor = #colorLiteral(red: 0.1843137255, green: 0.5529411765, blue: 0.168627451, alpha: 1)
+        self.speakerBtn.isUserInteractionEnabled = true
+        self.speakerBtn.backgroundColor = UIColor.white
+        self.speakerBtn.layer.cornerRadius = 30
         self.acceptBtn.isUserInteractionEnabled = true
         self.rejectBtn.isUserInteractionEnabled = true
         acceptBtn.contentMode = .center
         rejectBtn.contentMode = .center
+        self.speakerBtn.contentMode = .center
         acceptBtn.layer.cornerRadius = 30
         acceptBtn.isUserInteractionEnabled = true
         rejectBtn.backgroundColor = UIColor.red
         rejectBtn.layer.cornerRadius = 30
         rejectBtn.clipsToBounds = true
+        callRemoteView.addSubview(speakerBtn)
         callRemoteView.addSubview(rejectBtn)
         callRemoteView.addSubview(acceptBtn)
         if let url = URL.init(string: acceptStr){
@@ -255,6 +279,13 @@ extension IosWebRTC{
         if let url = URL.init(string: rejectStr){
             downloadImage(url: url, value: "reject")
         }
+        if let url = URL.init(string: self.isSpeakerOnUrl){
+            self.downloadImage(url: url, value: "speaker2")
+        }
+        if let url = URL.init(string: self.isSpeakerOffUrl){
+            self.downloadImage(url: url, value: "speaker1")
+        }
+        
         if let appl = UIApplication.shared.delegate as? CDVAppDelegate{
             self.callRemoteView.backgroundColor = UIColor.white
             appl.window.addSubview(callRemoteView)
@@ -264,9 +295,14 @@ extension IosWebRTC{
     @objc internal func acceptCall(gestureRecognizer: UITapGestureRecognizer) {
         print("acceptCall")
         self.rejectBtn.frame = CGRect.init(x: SCREEN_WIDTH/2+20, y: SCREEN_HEIGHT-100, width: 60, height: 60)
-        UIView.animate(withDuration: 0.33) {
-            self.rejectBtn.frame = CGRect.init(x: SCREEN_WIDTH/2 - 40, y: SCREEN_HEIGHT-100, width: 60, height: 60)
+        if self.isVideoCall{
+            UIView.animate(withDuration: 0.33) {
+                self.rejectBtn.frame = CGRect.init(x: SCREEN_WIDTH/2 - 40, y: SCREEN_HEIGHT-100, width: 60, height: 60)
+            }
+        }else{
+            self.speakerBtn.isHidden = false
         }
+        
         self.acceptBtn.isHidden = true
         if self.isCallComing{
             self.configureVideoClient()
@@ -281,10 +317,16 @@ extension IosWebRTC{
         self.removeStream()
         self.callRemoteView.removeFromSuperview()
         let rejectDict : [String:Any] = ["reason" : "userReject",
-                                         "isAccepted" : self.isAccepted == true ? 0 : 1] //might needs to change
+                                         "isAccepted" : self.isAccepted, "isCallComing" : self.isCallComing] //might needs to change
         let dict : [String : Any] = ["type":"cancel",
                                      "data" : rejectDict]
         self.callJS(data: dict.json)
+    }
+    @objc internal func speakerBtnTap(gestureRecognizer: UITapGestureRecognizer) {
+        print("speakerBtnTap")
+        self.isSpeakerOff = !self.isSpeakerOff
+        self.SetSpeakerOn()
+        
     }
     func rejectTimer(){
         if self.callTimer != nil{
@@ -321,6 +363,8 @@ extension IosWebRTC  {
                     let rec = data["reject"] as! String
                     let setting = data["settings"] as! [String:Any]
                     let stun = setting["stun"] as! String
+                    self.isSpeakerOffUrl =  data["off"] as! String //volume
+                    self.isSpeakerOnUrl =  data["on"] as! String //volume_cut
                     self.stunServer = stun
                     if callType == "A"{
                         self.isVideoCall = false
@@ -338,17 +382,30 @@ extension IosWebRTC  {
                     self.rejectTimer()
                 }
                 if let data = value["data"] as? [String:Any]{
+                    
                     if let res = data["response"] as? String{
                         if res == "rejected"{
-                            let rejectDict : [String:Any] = ["reason" : "userReject", "response": res, "isAccepted" : 3]
+                            let rejectDict : [String:Any] = ["reason" : "userReject", "response": res, "isAccepted" : self.isAccepted, "isCallComing" : self.isCallComing]
                             let dict : [String : Any] = ["type":"cancel", "data" : rejectDict]
                             self.callJS(data: dict.json)
                             return
                         }
                     }
+                    
+                    if let res2 = data["id"] as? String{
+                        if res2 == "stopCommunication" {
+                            let rejectDict : [String:Any] = ["reason" : "stopCommunication",
+                                                             "isAccepted" : self.isAccepted, "isCallComing" : self.isCallComing] //might needs to change
+                            let dict : [String : Any] = ["type":"stopCommunication",
+                                                         "data" : rejectDict]
+                            self.callJS(data: dict.json)
+                            return
+                        }
+                    }
+                    
                 }
                 let rejectDict : [String:Any] = ["reason" : "userReject",
-                                                 "isAccepted" : self.isAccepted == true ? 0 : 1] //might needs to change
+                                                 "isAccepted" : self.isAccepted, "isCallComing" : self.isCallComing] //might needs to change
                 let dict : [String : Any] = ["type":"cancel",
                                              "data" : rejectDict]
                 self.callJS(data: dict.json)
@@ -382,6 +439,8 @@ extension IosWebRTC  {
                     let setting = data["settings"] as! [String:Any]
                     let stun = setting["stun"] as! String
                     self.stunServer = stun
+                    self.isSpeakerOffUrl =  data["off"] as! String
+                    self.isSpeakerOnUrl =  data["on"] as! String
                     self.isCallComing = false
                     self.addCallerView(image: img, isCallComing: isCallComing, appName: appName, doctorName: name, status: "Connecting", rejectStr: rec, acceptStr: acc)
                     self.configureVideoClient()
@@ -417,6 +476,20 @@ extension IosWebRTC{
             completion(data, response, error)
             }.resume()
     }
+    func SetSpeakerOn()
+    {
+        try? AVAudioSession.sharedInstance().setCategory(AVAudioSessionCategoryPlayAndRecord)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        if self.isSpeakerOff{
+            self.speakerBtn.image = self.isSpeakerOffImage
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(AVAudioSessionPortOverride.none)
+        }else{
+            self.speakerBtn.image = self.isSpeakerOnImage
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(AVAudioSessionPortOverride.speaker)
+        }
+        
+    }
+    
     func downloadImage(url: URL,value : String){
         print("Download Started")
         getDataFromUrl(url: url) { data, response, error in
@@ -432,6 +505,13 @@ extension IosWebRTC{
                 else if value == "reject"{
                     self.rejectBtn.image = resizeImage(image: UIImage.init(data: data)!, targetSize: CGSize(width: 13, height: 13))
                 }
+                else if value == "speaker1"{
+                    self.isSpeakerOffImage = resizeImage(image: UIImage.init(data: data)!, targetSize: CGSize(width: 20, height: 20))
+                }
+                else if value == "speaker2"{
+                    self.isSpeakerOnImage = resizeImage(image: UIImage.init(data: data)!, targetSize: CGSize(width: 20, height: 20))
+                }
+                
             }
         }
     }
@@ -496,3 +576,4 @@ enum IonicTypes:String{
     case timerReject = "timerReject"
     case call = "call"
 }
+
