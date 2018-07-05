@@ -14,11 +14,7 @@ let SCREEN_WIDTH = UIScreen.main.bounds.width
 let SCREEN_HEIGHT = UIScreen.main.bounds.height
 
 @objc(IosWebRTC) class IosWebRTC : CDVPlugin , RTCClientDelegate  , RTCEAGLVideoViewDelegate{
-    func videoView(_ videoView: RTCEAGLVideoView, didChangeVideoSize size: CGSize) {
-        print(size)
-        print(videoView.frame.size)
-    }
-    
+   
     var speakerBtn : UIImageView!
     var callImageView : UIImageView!
     var callLocalView : RTCEAGLVideoView!
@@ -72,8 +68,6 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         )
     }
     override func awakeFromNib() {
-        //        setAudioOutputSpeaker()
-        //        self.SetSessionPlayerOn()
     }
     func configureVideoClient() {
         print(self.stunServer)
@@ -116,10 +110,13 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         print("didReceiveLocalVideoTrack",self.isVideoCall)
         setViewOfVideo()
         if self.isVideoCall{
+              self.isSpeakerOff = false
             self.callLocalView.isHidden = false
-            
+             try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
         }else{
+            self.isSpeakerOff = true
             self.callLocalView.isHidden = true
+            self.SetSpeakerOn()
         }
         localVideoTrack.add(self.callLocalView)
         self.videoClient?.makeOffer()
@@ -130,31 +127,28 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
             self.callTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(self.ShowTimerCount), userInfo: nil, repeats: true)
             self.remoteVideoTrack1 = remoteVideoTrack
             self.perform(#selector(self.calling), with: nil, afterDelay: 1.0)
-            
         }
     }
+    func videoView(_ videoView: RTCEAGLVideoView, didChangeVideoSize size: CGSize) {
+        print(size)
+        print(videoView.frame.size)
+    }
+    
     @objc func calling(){
         print("yes")
         self.isAccepted = true
         if self.isVideoCall{
             DispatchQueue.main.async {
-                self.isSpeakerOff = false
                 self.callImageView.isHidden = true
-                try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
                 self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }else{
             DispatchQueue.main.async {
-                self.isSpeakerOff = true
                 self.callImageView.isHidden = false
-                 self.SetSpeakerOn()
                 self.remoteVideoTrack1.add(self.callRemoteView)
             }
         }
-       
     }
-    
-    
     @objc func ShowTimerCount(){
         countSec = countSec + 1
         if countSec == 60{
@@ -302,7 +296,6 @@ extension IosWebRTC{
         }else{
             self.speakerBtn.isHidden = false
         }
-        
         self.acceptBtn.isHidden = true
         if self.isCallComing{
             self.configureVideoClient()
