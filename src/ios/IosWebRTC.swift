@@ -14,7 +14,7 @@ let SCREEN_WIDTH = UIScreen.main.bounds.width
 let SCREEN_HEIGHT = UIScreen.main.bounds.height
 
 @objc(IosWebRTC) class IosWebRTC : CDVPlugin , RTCClientDelegate  , RTCEAGLVideoViewDelegate{
-   
+    
     var speakerBtn : UIImageView!
     var callImageView : UIImageView!
     var callLocalView : RTCEAGLVideoView!
@@ -48,6 +48,12 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
     var isSpeakerOnUrl = ""
     var isSpeakerOffImage : UIImage?
     var isSpeakerOnImage : UIImage?
+    var busyTimer : Timer?
+    var notPicked : Timer?
+    var busySec = 0
+    var notPicSec = 0
+    var callPicked = false
+    
     func echo(_ command: CDVInvokedUrlCommand) {
         self.callBckCommand = command
         var pluginResult = CDVPluginResult(
@@ -110,9 +116,9 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         print("didReceiveLocalVideoTrack",self.isVideoCall)
         setViewOfVideo()
         if self.isVideoCall{
-              self.isSpeakerOff = false
+            self.isSpeakerOff = false
             self.callLocalView.isHidden = false
-             try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
         }else{
             self.isSpeakerOff = true
             self.callLocalView.isHidden = true
@@ -126,6 +132,15 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         DispatchQueue.main.async {
             self.callTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(self.ShowTimerCount), userInfo: nil, repeats: true)
             self.remoteVideoTrack1 = remoteVideoTrack
+            if !self.isCallComing{
+                if !self.isVideoCall{
+                    self.speakerBtn.frame = CGRect.init(x: SCREEN_WIDTH/2-60, y: SCREEN_HEIGHT-100, width: 60, height: 60)
+                    self.rejectBtn.frame = CGRect.init(x: SCREEN_WIDTH/2+20, y: SCREEN_HEIGHT-100, width: 60, height: 60)
+                    self.speakerBtn.isHidden = true
+                    self.isSpeakerOff = true
+                    self.SetSpeakerOn()
+                }
+            }
             self.perform(#selector(self.calling), with: nil, afterDelay: 1.0)
         }
     }
@@ -136,6 +151,7 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
     
     @objc func calling(){
         print("yes")
+        self.callPicked = true
         self.isAccepted = true
         if self.isVideoCall{
             DispatchQueue.main.async {
@@ -195,6 +211,11 @@ let SCREEN_HEIGHT = UIScreen.main.bounds.height
         self.countMin = 0
         self.isSpeakerOff = true
         self.videoClient?.disconnect()
+        self.busySec = 0
+        self.notPicSec = 0
+        self.callPicked = false
+        self.rejectNotPickedTimer()
+        self.rejectBusyTimer()
     }
 }
 extension IosWebRTC{
@@ -343,6 +364,7 @@ extension IosWebRTC{
 extension IosWebRTC  {
     func handleMsgFromIonic(msg : String){
         let value = msg.dictionary
+        print(value)
         if let type = value["type"] as? String{
             switch type {
             case IonicTypes.incomingCall.rawValue:
@@ -437,6 +459,8 @@ extension IosWebRTC  {
                     self.isCallComing = false
                     self.addCallerView(image: img, isCallComing: isCallComing, appName: appName, doctorName: name, status: "Connecting", rejectStr: rec, acceptStr: acc)
                     self.configureVideoClient()
+                    self.notPicked = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(self.notPickedTimer), userInfo: nil, repeats: true)
+                    
                 }
             case IonicTypes.ringing.rawValue:
                 if let data = value["data"] as? [String : Any] {
@@ -444,9 +468,70 @@ extension IosWebRTC  {
                         self.currentStatusLabel.text = text.capitalized
                     }
                 }
+            case IonicTypes.appkilled.rawValue:
+                self.removeStream()
+                self.callRemoteView.removeFromSuperview()
+                if self.isAccepted{
+                    self.rejectTimer()
+                }
+                
+                let rejectDict : [String:Any] = ["reason" : "appkilled",
+                                                 "isAccepted" : self.isAccepted, "isCallComing" : self.isCallComing] //might needs to change
+                let dict : [String : Any] = ["type":"appkilled",
+                                             "data" : rejectDict]
+                self.callJS(data: dict.json)
+            case IonicTypes.busy.rawValue:
+                if let data = value["data"] as? [String : Any] {
+                    if let text = data["text"] as? String{
+                        self.currentStatusLabel.text = text.capitalized
+                        self.busyTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(self.startBusyTimer), userInfo: nil, repeats: true)
+                    }
+                }
             default:
                 print("No type Found")
             }
+        }
+    }
+    func startBusyTimer(){
+        self.busySec += 1
+        if self.busySec == 5{
+            let rejectDict : [String:Any] = ["id" : "busy"]
+            let dict : [String : Any] = ["type":"busy",
+                                         "data" : rejectDict]
+            self.callJS(data: dict.json)
+            self.removeStream()
+            self.rejectBusyTimer()
+          self.callRemoteView.removeFromSuperview()
+        }
+    }
+    
+    func notPickedTimer(){
+        self.notPicSec += 1
+        if self.notPicSec == 45{
+            if !self.callPicked{
+            let rejectDict : [String:Any] = ["id" : "notpicked"]
+            let dict : [String : Any] = ["type":"notpicked",
+                                         "data" : rejectDict]
+            self.callJS(data: dict.json)
+            self.removeStream()
+            self.rejectNotPickedTimer()
+            self.callRemoteView.removeFromSuperview()
+            }
+            else{
+                self.rejectNotPickedTimer()
+            }
+        }
+    }
+    func rejectNotPickedTimer(){
+        if self.notPicked != nil{
+            self.notPicked?.invalidate()
+            self.notPicked = nil
+        }
+    }
+    func rejectBusyTimer(){
+        if self.busyTimer != nil{
+            self.busyTimer?.invalidate()
+            self.busyTimer = nil
         }
     }
     func caseOnCandidate(dict : [String : Any]){
@@ -568,5 +653,8 @@ enum IonicTypes:String{
     case sdp_startCommunication = "sdp_startCommunication"
     case timerReject = "timerReject"
     case call = "call"
+    case appkilled = "appkilled"
+    case busy = "busy"
+   
 }
 

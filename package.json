@@ -1,7 +1,7 @@
 {
   "name": "cordova-plugin-ioswebrtc",
   "email": "kumaraman7056@gmail.com",
-  "version": "0.1.24",
+  "version": "0.1.333",
   "description": "A plugin for implement WebRTC in ios",
   "repository": {
     "type": "git",
